@@ -1,6 +1,6 @@
 {
    "name": "@scrypted/sensibo",
-   "version": "0.1.0",
+   "version": "0.0.1",
    "description": "Sensibo Thermostat Plugin for Scrypted",
    "scripts": {
       "scrypted-setup-project": "scrypted-setup-project",
@@ -17,7 +17,7 @@
    },
    "repository": {
       "type": "git",
-      "url": "git+https://github.com/FiachAntaw/scrypted-sensibo.git"
+      "url": "git+https://github.com/scrypted/sensibo.git"
    },
    "keywords": [
       "scrypted",
@@ -35,10 +35,10 @@
       ]
    },
    "devDependencies": {
-      "@scrypted/sdk": "^0.2.56"
+      "@types/node": "^18.11.18"
    },
    "dependencies": {
-      "@types/node": "^16.6.1",
+      "@scrypted/sdk": "^0.2.56",
       "axios": "^0.24.0"
    }
 }
