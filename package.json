@@ -1,6 +1,6 @@
 {
    "name": "@scrypted/sensibo",
-   "version": "0.0.3",
+   "version": "0.0.4",
    "description": "Sensibo Thermostat Plugin for Scrypted",
    "scripts": {
       "scrypted-setup-project": "scrypted-setup-project",
