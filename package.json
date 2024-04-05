@@ -30,8 +30,7 @@
       "type": "DeviceProvider",
       "interfaces": [
          "DeviceProvider",
-         "Settings",
-         "Refresh"
+         "Settings"
       ]
    },
    "devDependencies": {
