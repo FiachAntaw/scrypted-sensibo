@@ -1,6 +1,6 @@
 {
    "name": "@scrypted/sensibo",
-   "version": "0.0.1",
+   "version": "0.0.2",
    "description": "Sensibo Thermostat Plugin for Scrypted",
    "scripts": {
       "scrypted-setup-project": "scrypted-setup-project",
@@ -35,10 +35,10 @@
       ]
    },
    "devDependencies": {
-      "@types/node": "^18.11.18"
+      "@types/node": "^20.12.4"
    },
    "dependencies": {
-      "@scrypted/sdk": "^0.2.56",
+      "@scrypted/sdk": "^0.3.29",
       "axios": "^0.24.0"
    }
 }

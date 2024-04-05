@@ -1,5 +1,5 @@
+import sdk, { Device, DeviceInformation, DeviceProvider, Fan, FanMode, FanState, FanStatus, HumiditySensor, Refresh, ScryptedDeviceBase, ScryptedDeviceType, ScryptedInterface, Setting, Settings, TemperatureCommand, TemperatureSetting, TemperatureSettingStatus, TemperatureUnit, Thermometer, ThermostatMode } from '@scrypted/sdk';
 import { StorageSettings } from '@scrypted/sdk/storage-settings';
-import sdk, { Device, DeviceInformation, DeviceProvider, HumiditySensor, Refresh, Fan, ScryptedDeviceBase, ScryptedDeviceType, ScryptedInterface, Setting, Settings, TemperatureSetting, TemperatureUnit, Thermometer, ThermostatMode, FanMode, FanState, FanStatus, TemperatureSettingStatus, TemperatureCommand } from '@scrypted/sdk';
 import { SensiboAPI, SensiboPod, SmartMode } from './api';
 
 const { deviceManager } = sdk;
@@ -134,10 +134,21 @@ class SensiboThermostat extends ScryptedDeviceBase implements TemperatureSetting
             nextTemperatureSetting.mode = sensiboModeToThermostatMode.get(this.pod.currentAcState.mode);
             if (nextTemperatureSetting.mode === ThermostatMode.Auto) {
                 // Guess the active mode based on the ambient and target temperatures
-                if (this.pod.measurements.temperature < this.thermostatSetpoint) {
-                    nextTemperatureSetting.activeMode = ThermostatMode.Heat;
-                } else {
-                    nextTemperatureSetting.activeMode = ThermostatMode.Cool;
+                if (Array.isArray(this.temperatureSetting?.setpoint)) {
+                    if (this.pod.measurements.temperature < this.temperatureSetting.setpoint[0]) {
+                        nextTemperatureSetting.activeMode = ThermostatMode.Heat;
+                    } else if (this.pod.measurements.temperature > this.temperatureSetting.setpoint[1]) {
+                        nextTemperatureSetting.activeMode = ThermostatMode.Cool;
+                    } else {
+                        nextTemperatureSetting.activeMode = ThermostatMode.Auto;
+                    }
+                }
+                else {
+                    if (this.pod.measurements.temperature < this.pod.currentAcState.targetTemperature) {
+                        nextTemperatureSetting.activeMode = ThermostatMode.Heat;
+                    } else {
+                        nextTemperatureSetting.activeMode = ThermostatMode.Cool;
+                    }
                 }
             } else {
                 nextTemperatureSetting.activeMode = nextTemperatureSetting.mode;
@@ -164,13 +175,15 @@ class SensiboThermostat extends ScryptedDeviceBase implements TemperatureSetting
         // Decode temperatureSetting to legacy interface
         // TODO: Remove when not needed
         if (Array.isArray(nextTemperatureSetting.setpoint)) {
-            this.thermostatSetpointLow = nextTemperatureSetting.setpoint[0];
-            this.thermostatSetpointHigh = nextTemperatureSetting.setpoint[1];
+            this.temperatureSetting.setpoint = [
+                nextTemperatureSetting.setpoint[0],
+                nextTemperatureSetting.setpoint[1]
+            ];
         } else {
-            this.thermostatSetpoint = nextTemperatureSetting.setpoint;
+            this.temperatureSetting.setpoint = nextTemperatureSetting.setpoint;
         }
-        this.thermostatMode = nextTemperatureSetting.mode;
-        this.thermostatActiveMode = nextTemperatureSetting.activeMode;
+        this.temperatureSetting.mode = nextTemperatureSetting.mode;
+        this.temperatureSetting.activeMode = nextTemperatureSetting.activeMode;
 
         // Thermometer interface
         this.temperature = this.pod.measurements.temperature;
@@ -198,7 +211,7 @@ class SensiboThermostat extends ScryptedDeviceBase implements TemperatureSetting
         this.fan = nextFan;
     }
 
-    async _sync() : Promise<void> {
+    async _sync(): Promise<void> {
         if (this.useSmartMode) {
             this.pod.nextSmartMode = this.smartModeConfig;
         }
@@ -211,7 +224,7 @@ class SensiboThermostat extends ScryptedDeviceBase implements TemperatureSetting
         this.updateFromCurrentAcState();
     }
 
-    podUsesFahrenheit() : boolean {
+    podUsesFahrenheit(): boolean {
         if (typeof this.pod.nextAcState.temperatureUnit !== undefined) {
             return this.pod.nextAcState.temperatureUnit === 'F';
         } else {
@@ -264,19 +277,19 @@ class SensiboThermostat extends ScryptedDeviceBase implements TemperatureSetting
     }
 
     async setThermostatMode(mode: ThermostatMode): Promise<void> {
-        return await this.setTemperature({mode: mode} as TemperatureCommand);
+        return await this.setTemperature({ mode: mode } as TemperatureCommand);
     }
 
     async setThermostatSetpoint(degrees: number): Promise<void> {
-        return await this.setTemperature({setpoint: degrees} as TemperatureCommand);
+        return await this.setTemperature({ setpoint: degrees } as TemperatureCommand);
     }
 
     async setThermostatSetpointHigh(high: number): Promise<void> {
-        await this.setTemperature({setpoint: [undefined, high]} as TemperatureCommand)
+        await this.setTemperature({ setpoint: [undefined, high] } as TemperatureCommand)
     }
 
     async setThermostatSetpointLow(low: number): Promise<void> {
-        await this.setTemperature({setpoint: [low, undefined]} as TemperatureCommand)
+        await this.setTemperature({ setpoint: [low, undefined] } as TemperatureCommand)
     }
 
     async setTemperatureUnit(temperatureUnit: TemperatureUnit): Promise<void> {
@@ -293,7 +306,7 @@ class SensiboThermostat extends ScryptedDeviceBase implements TemperatureSetting
         } else if (!wasFahrenheit && isFahrenheit) {
             if (typeof this.pod.nextAcState.targetTemperature !== undefined) {
                 this.pod.nextAcState.targetTemperature =
-                celsiusToFarenheit(this.pod.nextAcState.targetTemperature);
+                    celsiusToFarenheit(this.pod.nextAcState.targetTemperature);
             }
         }
 
@@ -374,27 +387,27 @@ class SensiboProvider extends ScryptedDeviceBase implements DeviceProvider, Sett
         const pods = await this.api.discoverPods();
 
         const devices = pods.map(pod => ({
-                nativeId: pod.podInfo.id,
-                name: `${pod.podInfo.room.name} AC`,
-                type: ScryptedDeviceType.Thermostat,
-                interfaces: [
-                    ScryptedInterface.TemperatureSetting,
-                    ScryptedInterface.Thermometer,
-                    ScryptedInterface.HumiditySensor,
-                    ScryptedInterface.Fan,
-                    ScryptedInterface.Refresh,
-                    ScryptedInterface.Settings
-                ],
-                info: {
-                    model: pod.podInfo.productModel,
-                    manufacturer: 'Sensibo',
-                    version: pod.podInfo.firmwareType,
-                    firmware: pod.podInfo.firmwareVersion,
-                    serialNumber: pod.podInfo.serial,
-                    mac: pod.podInfo.macAddress
-                } as DeviceInformation,
-                room: pod.podInfo.room.name
-            } as Device));
+            nativeId: pod.podInfo.id,
+            name: `${pod.podInfo.room.name} AC`,
+            type: ScryptedDeviceType.Thermostat,
+            interfaces: [
+                ScryptedInterface.TemperatureSetting,
+                ScryptedInterface.Thermometer,
+                ScryptedInterface.HumiditySensor,
+                ScryptedInterface.Fan,
+                ScryptedInterface.Refresh,
+                ScryptedInterface.Settings
+            ],
+            info: {
+                model: pod.podInfo.productModel,
+                manufacturer: 'Sensibo',
+                version: pod.podInfo.firmwareType,
+                firmware: pod.podInfo.firmwareVersion,
+                serialNumber: pod.podInfo.serial,
+                mac: pod.podInfo.macAddress
+            } as DeviceInformation,
+            room: pod.podInfo.room.name
+        } as Device));
 
         await deviceManager.onDevicesChanged({
             devices: devices
